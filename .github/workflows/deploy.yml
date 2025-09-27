@@ -17,7 +17,7 @@ jobs:
       - run: |
           cd app
           pip install -r requirements.txt
-          python -c "import src.main; print('App imports successfully')"
+          python -c "import src.app; print('App imports successfully')"
 
   build:
     needs: test
