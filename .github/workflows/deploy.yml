@@ -1,45 +1,26 @@
-name: Simple CI/CD Pipeline
+name: Simple CI/CD
 
 on:
   push:
     branches: [main, develop]
-  pull_request:
-    branches: [main]
 
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+
       - run: |
-          cd app
-          pip install -r requirements.txt
-          python -c "import src.app; print('App imports successfully')"
+          gcloud auth activate-service-account --key-file="${{ secrets.GCP_SA_KEY }}"
+          gcloud config set project terraform-assess-26565
+          gcloud builds submit ./app --tag us-central1-docker.pkg.dev/terraform-assess-26565/terraform-assessment-repo/app:latest
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            gcloud run deploy terraform-assessment-prod \
+              --image us-central1-docker.pkg.dev/terraform-assess-26565/terraform-assessment-repo/app:latest \
+              --region us-central1 --platform managed --allow-unauthenticated
+          else
+            gcloud run deploy terraform-assessment-dev \
+              --image us-central1-docker.pkg.dev/terraform-assess-26565/terraform-assessment-repo/app:latest \
+              --region us-central1 --platform managed --allow-unauthenticated
+          fi
 
-  build:
-    needs: test
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          cd app
-          docker build -t myapp:${{ github.sha }} .
-          echo "Built image: myapp:${{ github.sha }}"
-
-  deploy-dev:
-    needs: build
-    if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Would deploy to DEV environment"
-
-  deploy-prod:
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Would deploy to PROD environment"
