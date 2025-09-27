@@ -13,6 +13,13 @@ provider "google" {
   region  = var.region
 }
 
+module "networking" {
+  source = "../../modules/networking"
+
+  project_name = var.app_name
+  region       = var.region
+}
+
 module "artifact_registry" {
   source = "../../modules/registry"
 
@@ -33,11 +40,31 @@ module "storage" {
 module "cloudrun" {
   source = "../../modules/cloudrun"
 
-  project_id    = var.project_id
-  region        = var.region
-  service_name  = "${var.app_name}-${var.environment}"
-  image_url     = var.image_url
-  environment   = var.environment
-  min_instances = "0"
-  max_instances = "5"
+  project_id         = var.project_id
+  region             = var.region
+  service_name       = "${var.app_name}-${var.environment}"
+  image_url          = var.image_url
+  environment        = var.environment
+  min_instances      = 0
+  max_instances      = 5
+  vpc_connector_name = module.networking.vpc_connector_id
+}
+
+module "loadbalancer" {
+  source = "../../modules/loadbalancer"
+
+  service_name            = "${var.app_name}-${var.environment}"
+  region                  = var.region
+  cloud_run_service_name  = module.cloudrun.service_name
+  domain_name            = var.domain_name
+}
+
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  project_id          = var.project_id
+  service_name        = module.cloudrun.service_name
+  service_url         = module.loadbalancer.load_balancer_url
+  log_bucket_name     = module.storage.bucket_name
+  notification_channels = var.notification_channels
 }
