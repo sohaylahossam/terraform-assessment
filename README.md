@@ -56,12 +56,26 @@ gcloud config set project YOUR_PROJECT_ID
 ### 3. Create Service Account for Terraform
 
 ```bash
-gcloud iam service-accounts create terraform-sa --display-name "Terraform Service Account” --project YOUR_PROJECT_ID
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID —member=“serviceAccount:terraform-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" —role=“roles/editor"
-gcloud iam service-accounts keys create ~/terraform-sa.json --iam-account terraform-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
+# 1. Create the service account
+gcloud iam service-accounts create terraform-sa \
+  --display-name "Terraform Service Account" \
+  --project YOUR_PROJECT_ID
+
+# 2. Grant it editor role
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:terraform-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/editor"
+
+# 3. Create a key for the service account
+gcloud iam service-accounts keys create ~/terraform-sa.json \
+  --iam-account terraform-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
+
+# 4. Set the environment variable to use this key
 export GOOGLE_APPLICATION_CREDENTIALS="/home/sohaylahossamm/terraform-sa.json"
+
+# 5. Confirm the active account
 gcloud auth list
-gcloud auth list
+
 
 ---
 ```
@@ -90,15 +104,21 @@ docker run -p 8080:8080 terraform-assessment:latest # Test container
 ### 6.Push to Artifact Registry (Optional)
 
 ```bash
-# Create repository 
-gcloud artifacts repositories create terraform-assessment-repo —repository-format=docker — location=us-central1
+# 1. Create repository 
+gcloud artifacts repositories create terraform-assessment-repo \
+  --repository-format=docker \
+  --location=us-central1
 
-# Configure Docker 
+# 2. Configure Docker 
 gcloud auth configure-docker us-central1-docker.pkg.dev
 
-# Tag and push
- docker tag terraform-assessment:latest \ us-central1-docker.pkg.dev/YOUR_PROJECT_ID/terraform-assessment-repo/app:latest 
+# 3. Tag the image
+docker tag terraform-assessment:latest \
+  us-central1-docker.pkg.dev/YOUR_PROJECT_ID/terraform-assessment-repo/app:latest
+
+# 4. Push the image
 docker push us-central1-docker.pkg.dev/YOUR_PROJECT_ID/terraform-assessment-repo/app:latest
+
 
 ---
 ```
@@ -173,5 +193,46 @@ Permissions errors: Confirm the service account has roles/editor or required rol
 
 Load Balancer issues: Deploy backend services and Cloud Run before the Load Balancer.
 
+### Cloud Run Load Balancer & IAM Issues
+If, after running `terraform apply`, you see:
+
+- The Serverless NEG shows `size: 0`  
+- The Load Balancer returns 403 errors  
+- You cannot access the service through the LB IP
+
+Option 1 : Use your own Google account temporarily
+Your personal Google account already has the required permissions.  
+Run:
+
+```bash
+gcloud auth login
+gcloud auth list   # make sure your account is active (has the * symbol)
+gcloud run services add-iam-policy-binding terraform-assessment-dev \
+  --region us-central1 \
+  --member="allUsers" \
+  --role="roles/run.invoker"
+
+
 ---
+```
+
+Option 2 : Grant the Terraform Service Account permissions
+Run: 
+
+```bash
+gcloud projects add-iam-policy-binding terraform-assess-26565 \
+  --member="serviceAccount:terraform-sa@terraform-assess-26565.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+gcloud compute network-endpoint-groups describe terraform-assessment-dev-neg \
+  --region us-central1
+
+# Direct Cloud Run URL:
+curl -v https://terraform-assessment-dev-<YOUR-ID>.us-central1.run.app
+
+# Load Balancer IP:
+curl -v http://<YOUR-LB-IP>
+
+```
+You should now receive a 200 OK response from your application.
 
