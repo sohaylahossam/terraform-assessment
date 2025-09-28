@@ -35,4 +35,5 @@ jobs:
           else
             echo "Deploy to DEV"
             # gcloud run deploy terraform-assessment-dev --image IMAGE
+          fi
 
