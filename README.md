@@ -168,7 +168,9 @@ gcloud compute addresses list --global
 ```
 ## Troubleshooting
 Authentication errors: Ensure GOOGLE_APPLICATION_CREDENTIALS points to the correct service account JSON.
+
 Permissions errors: Confirm the service account has roles/editor or required roles.
+
 Load Balancer issues: Deploy backend services and Cloud Run before the Load Balancer.
 
 ---
